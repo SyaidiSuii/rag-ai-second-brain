@@ -1,0 +1,51 @@
+# ==========================================
+# AI Second Brain - Root .gitignore
+# ==========================================
+
+# 1. Environment & Secret Keys (Penting!)
+.env
+.env.local
+.env.*.local
+*.env
+*.pem
+*.key
+
+# 2. Python Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+
+# 3. Python Caches & Compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# 4. User Storage / Uploaded Files & Data
+storage/*
+!storage/.gitkeep
+
+# 5. Database local files
+*.db
+*.sqlite
+*.sqlite3
+
+# 6. Node.js & Frontend build files
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+node_modules/
+.next/
+
+# 7. IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.tmp
