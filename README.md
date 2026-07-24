@@ -30,15 +30,32 @@ Aplikasi pembantu pengaturcaraan berasaskan kecerdasan buatan (AI) yang membantu
 
 ---
 
-## 🛠️ Stack Teknologi
+## 🛠️ Stack Teknologi & Versi Terperinci
 
-*   **Backend Framework**: FastAPI (Python 3.11+)
-*   **Database**: PostgreSQL dengan `pgvector` extension
-*   **Background Worker**: Celery
-*   **Message Broker**: Redis Server 5.0.14
-*   **Embedding Model**: Google Gemini API (`gemini-embedding-001` dipotong secara dinamik kepada 1536 dimensi)
-*   **LLM Model**: Google Gemini (`gemini-1.5-flash` / model pilihan)
-*   **Frontend**: Next.js 15, React 19, TypeScript, Vanilla CSS (tanpa Tailwind)
+Projek ini dibina menggunakan kombinasi stack teknologi berasaskan Python (Backend) dan Next.js (Frontend):
+
+### 🐍 Backend & Persekitaran Runtime
+* **Runtime**: Python `3.13.12` (Menyokong Python `3.11+`)
+* **Web Framework**: FastAPI `v0.139.2` (dengan Uvicorn `v0.51.0`)
+* **Database ORM & Driver**: SQLAlchemy `v2.0.51` & `psycopg2-binary` `v2.9.12`
+* **Pangkalan Data Vektor**: `pgvector` `v0.5.0`
+* **Background Worker**: Celery `v5.6.3`
+* **Message Broker Client**: `redis` `v4.6.0` (Disetkan ke protokol RESP2)
+* **Integrasi AI / LLM**: OpenAI Python SDK `v2.46.0` (Menyokong OpenAI, Google Gemini API, & Ollama)
+* **Pengesahan & Keselamatan**: `PyJWT` `v2.13.0` & `bcrypt` `v5.0.0`
+* **Pemproses Fail PDF**: `pypdf` `v6.14.2`
+* **Pengurusan Tetapan**: `pydantic` `v2.13.4` & `pydantic-settings` `v2.14.2`
+
+### 🗄️ Pangkalan Data & Message Broker
+* **Database**: PostgreSQL 15+ (bersama ekstensi `pgvector`)
+* **Message Broker**: Redis Server `v5.0.14` (Port `6379`)
+
+### 🌐 Frontend (Web UI)
+* **Framework**: Next.js `v16.2.10` (App Router)
+* **UI Library**: React `v19.2.4` & React DOM `v19.2.4`
+* **Bahasa**: TypeScript `v5.x`
+* **Linter**: ESLint `v9.x` (`eslint-config-next` `v16.2.10`)
+* **Styling**: Vanilla CSS (Custom Design System, Dark Mode & Glassmorphism, Tanpa Tailwind)
 
 ---
 
