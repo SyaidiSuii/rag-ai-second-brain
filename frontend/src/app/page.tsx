@@ -1,12 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import LoginPage from "./components/LoginPage";
 
-const BACKEND_URL = "http://127.0.0.1:8000";
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined"
+    ? `http://${window.location.hostname}:8000`
+    : "http://127.0.0.1:8000");
 
 interface Project {
   project_id: string;
   name: string;
+  llm_config?: {
+    provider: string;
+    model: string;
+    base_url: string;
+  };
 }
 
 interface ChatSession {
@@ -46,9 +56,6 @@ const getErrorMessage = (err: unknown) => {
 
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<string | null>(null);
@@ -65,15 +72,69 @@ export default function Home() {
   const [apiKey, setApiKey] = useState("");
   const [modelName, setModelName] = useState("gemini-1.5-flash");
 
+  const handleProviderSelect = (type: string) => {
+    setProviderType(type);
+    if (type === "google") {
+      setBaseUrl("https://generativelanguage.googleapis.com/v1beta/openai/");
+      setModelName("gemini-1.5-flash");
+    } else if (type === "openai") {
+      setBaseUrl("https://api.openai.com/v1");
+      setModelName("gpt-4o-mini");
+    } else if (type === "openrouter") {
+      setBaseUrl("https://openrouter.ai/api/v1");
+      setModelName("anthropic/claude-3.5-sonnet");
+    } else if (type === "deepseek") {
+      setBaseUrl("https://api.deepseek.com/v1");
+      setModelName("deepseek-chat");
+    } else if (type === "groq") {
+      setBaseUrl("https://api.groq.com/openai/v1");
+      setModelName("llama-3.3-70b-versatile");
+    } else if (type === "local") {
+      setBaseUrl("http://localhost:11434/v1");
+      setModelName("llama3");
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"chat" | "docs" | "search">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "docs" | "search" | "settings">("chat");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const [authFeedback, setAuthFeedback] = useState<Feedback | null>(null);
+  // ponytail: Tetapan Model & AI Projek
+  const [editProjName, setEditProjName] = useState("");
+  const [editProviderType, setEditProviderType] = useState("google");
+  const [editBaseUrl, setEditBaseUrl] = useState("https://generativelanguage.googleapis.com/v1beta/openai/");
+  const [editApiKey, setEditApiKey] = useState("");
+  const [editModelName, setEditModelName] = useState("gemini-1.5-flash");
+  const [settingsFeedback, setSettingsFeedback] = useState<Feedback | null>(null);
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+
+  const handleEditProviderSelect = (type: string) => {
+    setEditProviderType(type);
+    if (type === "google") {
+      setEditBaseUrl("https://generativelanguage.googleapis.com/v1beta/openai/");
+      setEditModelName("gemini-1.5-flash");
+    } else if (type === "openai") {
+      setEditBaseUrl("https://api.openai.com/v1");
+      setEditModelName("gpt-4o-mini");
+    } else if (type === "openrouter") {
+      setEditBaseUrl("https://openrouter.ai/api/v1");
+      setEditModelName("anthropic/claude-3.5-sonnet");
+    } else if (type === "deepseek") {
+      setEditBaseUrl("https://api.deepseek.com/v1");
+      setEditModelName("deepseek-chat");
+    } else if (type === "groq") {
+      setEditBaseUrl("https://api.groq.com/openai/v1");
+      setEditModelName("llama-3.3-70b-versatile");
+    } else if (type === "local") {
+      setEditBaseUrl("http://localhost:11434/v1");
+      setEditModelName("llama3");
+    }
+  };
+
   const [projectFeedback, setProjectFeedback] = useState<Feedback | null>(null);
   const [docsFeedback, setDocsFeedback] = useState<Feedback | null>(null);
   const [searchFeedback, setSearchFeedback] = useState<Feedback | null>(null);
@@ -81,7 +142,7 @@ export default function Home() {
   const messageEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
+    const savedToken = localStorage.getItem("token") || sessionStorage.getItem("token");
     if (savedToken) {
       setToken(savedToken);
     }
@@ -92,6 +153,21 @@ export default function Home() {
       fetchProjects();
     }
   }, [token]);
+
+  useEffect(() => {
+    if (activeProject) {
+      const current = projects.find((p) => p.project_id === activeProject);
+      if (current) {
+        setEditProjName(current.name || "");
+        if (current.llm_config) {
+          setEditProviderType(current.llm_config.provider || "google");
+          setEditBaseUrl(current.llm_config.base_url || "");
+          setEditModelName(current.llm_config.model || "");
+          setEditApiKey("");
+        }
+      }
+    }
+  }, [activeProject, projects]);
 
   useEffect(() => {
     if (activeProject && token) {
@@ -117,60 +193,18 @@ export default function Home() {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages]);
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthFeedback(null);
 
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/v1/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Pendaftaran gagal");
-
-      setAuthFeedback({ type: "success", message: "Akaun berjaya didaftarkan. Sila log masuk." });
-      setIsRegisterMode(false);
-    } catch (err: unknown) {
-      setAuthFeedback({ type: "error", message: getErrorMessage(err) });
-    }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthFeedback(null);
-
-    try {
-      const formData = new URLSearchParams();
-      formData.append("username", email);
-      formData.append("password", password);
-
-      const res = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Log masuk gagal");
-
-      localStorage.setItem("token", data.access_token);
-      setToken(data.access_token);
-      setEmail("");
-      setPassword("");
-    } catch (err: unknown) {
-      setAuthFeedback({ type: "error", message: getErrorMessage(err) });
-    }
-  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    sessionStorage.removeItem("token");
+    document.cookie = "token=; path=/; max-age=0; SameSite=Lax";
     setToken(null);
     setProjects([]);
     setActiveProject(null);
   };
 
-  const fetchProjects = async () => {
+  const fetchProjects = async (targetProjectId?: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/v1/projects`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -179,7 +213,9 @@ export default function Home() {
 
       const data = await res.json();
       setProjects(data);
-      if (data.length > 0 && !activeProject) {
+      if (targetProjectId) {
+        setActiveProject(targetProjectId);
+      } else if (data.length > 0 && !activeProject) {
         setActiveProject(data[0].project_id);
       }
     } catch (err) {
@@ -209,11 +245,87 @@ export default function Home() {
 
       setNewProjName("");
       setApiKey("");
-      fetchProjects();
+      await fetchProjects(data.project_id);
       setActiveProject(data.project_id);
       setProjectFeedback({ type: "success", message: "Projek berjaya dicipta." });
     } catch (err: unknown) {
       setProjectFeedback({ type: "error", message: getErrorMessage(err) });
+    }
+  };
+
+  // ponytail: Kemas kini tetapan AI & model projek aktif
+  const handleUpdateProjectSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeProject) return;
+    setSettingsFeedback(null);
+    setIsUpdatingSettings(true);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/v1/projects/${activeProject}/llm-config`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: editProjName,
+          provider_type: editProviderType,
+          base_url: editBaseUrl,
+          api_key: editApiKey || undefined,
+          model_name: editModelName,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Gagal mengemas kini tetapan projek");
+
+      setEditApiKey("");
+      await fetchProjects(activeProject);
+      setSettingsFeedback({ type: "success", message: "Model & Tetapan AI berjaya dikemas kini!" });
+    } catch (err: unknown) {
+      setSettingsFeedback({ type: "error", message: getErrorMessage(err) });
+    } finally {
+      setIsUpdatingSettings(false);
+    }
+  };
+
+  // ponytail: Padam projek
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm("Adakah anda pasti mahu memadam projek ini beserta fail dan sejarah sembangnya?")) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/v1/projects/${projectId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || "Gagal memadam projek");
+      }
+      setActiveProject(null);
+      await fetchProjects();
+    } catch (err: unknown) {
+      alert(getErrorMessage(err));
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/v1/chats/${sessionId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || "Gagal memadam sesi sembang");
+      }
+
+      setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
+      if (activeSession === sessionId) {
+        setActiveSession(null);
+        setMessages([]);
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -398,64 +510,16 @@ export default function Home() {
 
   if (!token) {
     return (
-      <div className="login-container">
-        <div className="login-card glass-panel">
-          <div className="logo-header">
-            <span className="logo-icon">SB</span>
-            <h1>AI Second Brain</h1>
-            <p>Memori projek, fail rujukan, dan carian semantik untuk developer.</p>
-          </div>
-
-          <form onSubmit={isRegisterMode ? handleRegister : handleLogin} className="auth-form">
-            <h2>{isRegisterMode ? "Daftar akaun baru" : "Log masuk workspace"}</h2>
-            {authFeedback && (
-              <div className={`feedback ${authFeedback.type}`} role="status">
-                {authFeedback.message}
-              </div>
-            )}
-
-            <div className="form-group">
-              <label>E-mel</label>
-              <input
-                type="email"
-                className="glass-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="developer@example.com"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Kata Laluan</label>
-              <input
-                type="password"
-                className="glass-input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Kata laluan anda"
-                required
-              />
-            </div>
-
-            <button type="submit" className="btn-primary auth-submit">
-              {isRegisterMode ? "Daftar Akaun" : "Log Masuk"}
-            </button>
-          </form>
-
-          <div className="auth-toggle">
-            {isRegisterMode ? (
-              <p>Sudah mempunyai akaun? <span onClick={() => setIsRegisterMode(false)}>Log masuk di sini</span></p>
-            ) : (
-              <p>Belum mempunyai akaun? <span onClick={() => setIsRegisterMode(true)}>Daftar akaun baru</span></p>
-            )}
-          </div>
-        </div>
-      </div>
+      <LoginPage
+        backendUrl={BACKEND_URL}
+        onLoginSuccess={(newToken) => setToken(newToken)}
+      />
     );
   }
 
-  const activeProjectName = projects.find((p) => p.project_id === activeProject)?.name || "Pilih Projek untuk Bermula";
+  const currentProject = projects.find((p) => p.project_id === activeProject);
+  const activeProjectName = currentProject?.name || "Pilih Projek untuk Bermula";
+  const activeProjectModel = currentProject?.llm_config?.model || null;
 
   return (
     <div className="dashboard-container">
@@ -469,7 +533,19 @@ export default function Home() {
         </div>
 
         <div className="sidebar-section">
-          <h3>Projek semasa</h3>
+          <div className="section-header">
+            <h3>Projek semasa</h3>
+            <button
+              onClick={() => {
+                setActiveProject(null);
+                setNewProjName("");
+              }}
+              className="new-chat-btn"
+              title="Cipta Projek Baru"
+            >
+              +
+            </button>
+          </div>
           <select
             value={activeProject || ""}
             onChange={(e) => {
@@ -494,14 +570,39 @@ export default function Home() {
           </div>
           <div className="chat-sessions-list">
             {sessions.map((s) => (
-              <button
-                type="button"
-                key={s.session_id}
-                onClick={() => setActiveSession(s.session_id)}
-                className={`chat-session-item ${activeSession === s.session_id ? "active" : ""}`}
-              >
-                <span className="item-marker">CH</span>{s.title}
-              </button>
+              <div key={s.session_id} style={{ display: "flex", alignItems: "center", gap: "4px", width: "100%" }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveSession(s.session_id)}
+                  className={`chat-session-item ${activeSession === s.session_id ? "active" : ""}`}
+                  style={{ flex: 1, minWidth: 0 }}
+                >
+                  <span className="item-marker">CH</span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm("Adakah anda pasti mahu memadam sesi sembang ini?")) {
+                      handleDeleteSession(s.session_id);
+                    }
+                  }}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: "rgba(225, 121, 114, 0.7)",
+                    cursor: "pointer",
+                    padding: "6px",
+                    borderRadius: "6px",
+                    fontSize: "13px",
+                    lineHeight: 1
+                  }}
+                  title="Padam Sesi Sembang"
+                >
+                  🗑️
+                </button>
+              </div>
             ))}
             {sessions.length === 0 && <p className="empty-text">Tiada sejarah sembang.</p>}
           </div>
@@ -521,7 +622,31 @@ export default function Home() {
       <main className="main-content">
         <header className="main-header glass-panel">
           <div className="header-project-name">
-            <span className="eyebrow">Developer memory</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span className="eyebrow">Developer memory</span>
+              {activeProjectModel && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("settings")}
+                  title="Klik untuk ubah model AI"
+                  style={{
+                    fontSize: "11px",
+                    background: "rgba(153, 194, 107, 0.15)",
+                    color: "#b7df84",
+                    padding: "3px 10px",
+                    borderRadius: "6px",
+                    border: "1px solid rgba(183, 223, 132, 0.3)",
+                    fontFamily: "var(--font-code)",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px"
+                  }}
+                >
+                  🤖 {activeProjectModel} <span style={{ opacity: 0.7, fontSize: "10px" }}>✎</span>
+                </button>
+              )}
+            </div>
             <h1>{activeProjectName}</h1>
           </div>
 
@@ -534,6 +659,9 @@ export default function Home() {
             </button>
             <button onClick={() => setActiveTab("search")} className={`tab-btn ${activeTab === "search" ? "active" : ""}`}>
               Carian Semantik
+            </button>
+            <button onClick={() => setActiveTab("settings")} className={`tab-btn ${activeTab === "settings" ? "active" : ""}`}>
+              ⚙️ Tetapan Model AI
             </button>
           </nav>
         </header>
@@ -557,13 +685,13 @@ export default function Home() {
           {!activeProject ? (
             <div className="no-project-panel glass-panel">
               <div className="empty-state-copy">
-                <span className="eyebrow">Setup</span>
-                <h2>Sediakan workspace projek pertama</h2>
-                <p>Pilih atau cipta projek untuk memulakan pemprosesan dokumen, sembang RAG, dan carian vektor.</p>
+                <span className="eyebrow">Setup Projek</span>
+                <h2>Pilih & Sediakan Enjin AI Projek</h2>
+                <p>Cipta projek baharu dan pilih mana-mana enjin AI (Google Gemini, OpenAI, Claude via OpenRouter, DeepSeek, Groq, atau Ollama Tempatan).</p>
               </div>
 
               <form onSubmit={handleCreateProject} className="create-project-inline">
-                <h3>Cipta Projek Pertama Anda</h3>
+                <h3>Cipta Projek & Pilih AI Model</h3>
                 {projectFeedback && (
                   <div className={`feedback ${projectFeedback.type}`} role="status">
                     {projectFeedback.message}
@@ -584,23 +712,19 @@ export default function Home() {
 
                 <div className="form-grid">
                   <div className="form-group">
-                    <label>Jenis Pembekal LLM</label>
+                    <label>Penyedia AI / LLM Model</label>
                     <select
                       value={providerType}
-                      onChange={(e) => {
-                        setProviderType(e.target.value);
-                        if (e.target.value === "google") {
-                          setBaseUrl("https://generativelanguage.googleapis.com/v1beta/openai/");
-                          setModelName("gemini-1.5-flash");
-                        } else {
-                          setBaseUrl("http://localhost:11434/v1");
-                          setModelName("llama3");
-                        }
-                      }}
+                      onChange={(e) => handleProviderSelect(e.target.value)}
                       className="glass-input"
                     >
-                      <option value="google">Google AI Studio (Gemini)</option>
-                      <option value="local">Ollama tempatan</option>
+                      <option value="google">Google AI Studio (Gemini 1.5/2.0)</option>
+                      <option value="openrouter">OpenRouter (Claude 3.5 / DeepSeek R1 / Llama)</option>
+                      <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+                      <option value="deepseek">DeepSeek Direct (deepseek-chat)</option>
+                      <option value="groq">Groq Console (llama-3.3-70b - Fast)</option>
+                      <option value="local">Ollama Tempatan (Offline / Local)</option>
+                      <option value="custom">Custom (Manual Base URL)</option>
                     </select>
                   </div>
 
@@ -611,18 +735,20 @@ export default function Home() {
                 </div>
 
                 <div className="form-group">
-                  <label>API Key untuk Google Gemini</label>
+                  <label>
+                    API Key {providerType === "local" ? "(Opsional)" : `untuk ${providerType.toUpperCase()}`}
+                  </label>
                   <input
                     type="password"
                     className="glass-input"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Masukkan API Key AI Studio anda"
+                    placeholder={providerType === "local" ? "Kosongkan untuk Ollama" : `Masukkan API Key ${providerType} anda`}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Nama Model AI</label>
+                  <label>Nama Model AI (`model_name`)</label>
                   <input type="text" className="glass-input" value={modelName} onChange={(e) => setModelName(e.target.value)} required />
                 </div>
 
@@ -793,6 +919,147 @@ export default function Home() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {activeTab === "settings" && (
+                <div className="glass-panel" style={{ padding: "32px", maxWidth: "800px", margin: "0 auto", overflowY: "auto", width: "100%" }}>
+                  <div style={{ marginBottom: "24px" }}>
+                    <span className="eyebrow">Konfigurasi Projek</span>
+                    <h2 style={{ fontSize: "24px", fontWeight: "700", marginTop: "4px" }}>Tetapan Model & Enjin AI</h2>
+                    <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginTop: "6px" }}>
+                      Tukar pembekal AI, tukar model (cth: GPT-4o, Claude 3.5, Gemini, DeepSeek, Ollama), atau kemas kini API Key untuk projek semasa.
+                    </p>
+                  </div>
+
+                  {settingsFeedback && (
+                    <div className={`feedback ${settingsFeedback.type}`} role="status" style={{ marginBottom: "20px" }}>
+                      {settingsFeedback.message}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleUpdateProjectSettings} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+                    <div className="form-group">
+                      <label>Nama Projek</label>
+                      <input
+                        type="text"
+                        className="glass-input"
+                        value={editProjName}
+                        onChange={(e) => setEditProjName(e.target.value)}
+                        placeholder="Nama projek anda"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-grid">
+                      <div className="form-group">
+                        <label>Penyedia AI / LLM Model</label>
+                        <select
+                          value={editProviderType}
+                          onChange={(e) => handleEditProviderSelect(e.target.value)}
+                          className="glass-input"
+                        >
+                          <option value="google">Google AI Studio (Gemini 1.5/2.0)</option>
+                          <option value="openrouter">OpenRouter (Claude 3.5 / DeepSeek R1 / Llama)</option>
+                          <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+                          <option value="deepseek">DeepSeek Direct (deepseek-chat)</option>
+                          <option value="groq">Groq Console (llama-3.3-70b - Fast)</option>
+                          <option value="local">Ollama Tempatan (Offline / Local)</option>
+                          <option value="custom">Custom (Manual Base URL)</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Base URL API</label>
+                        <input
+                          type="text"
+                          className="glass-input"
+                          value={editBaseUrl}
+                          onChange={(e) => setEditBaseUrl(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>
+                        API Key {editProviderType === "local" ? "(Opsional)" : `untuk ${editProviderType.toUpperCase()}`}
+                      </label>
+                      <input
+                        type="password"
+                        className="glass-input"
+                        value={editApiKey}
+                        onChange={(e) => setEditApiKey(e.target.value)}
+                        placeholder="Biarkan kosong untuk mengekalkan API Key sedia ada"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Nama Model AI (`model_name`)</label>
+                      <input
+                        type="text"
+                        className="glass-input"
+                        value={editModelName}
+                        onChange={(e) => setEditModelName(e.target.value)}
+                        required
+                      />
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "8px" }}>
+                        <span style={{ fontSize: "12px", color: "var(--text-muted)", alignSelf: "center" }}>Pilihan Cepat:</span>
+                        {[
+                          "gemini-1.5-flash",
+                          "gemini-2.0-flash",
+                          "gpt-4o",
+                          "gpt-4o-mini",
+                          "anthropic/claude-3.5-sonnet",
+                          "deepseek/deepseek-r1",
+                          "deepseek-chat",
+                          "llama-3.3-70b-versatile",
+                          "llama3"
+                        ].map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setEditModelName(m)}
+                            style={{
+                              fontSize: "11px",
+                              padding: "3px 8px",
+                              borderRadius: "4px",
+                              border: "1px solid var(--border)",
+                              background: editModelName === m ? "var(--accent-primary)" : "rgba(255,255,255,0.05)",
+                              color: editModelName === m ? "#000" : "var(--text-secondary)",
+                              cursor: "pointer",
+                              fontWeight: editModelName === m ? "700" : "normal"
+                            }}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "12px", marginTop: "16px", alignItems: "center", justifyContent: "space-between" }}>
+                      <button type="submit" className="btn-primary" disabled={isUpdatingSettings}>
+                        {isUpdatingSettings ? "Mengemas kini..." : "💾 Simpan & Kemas Kini Model AI"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteProject(activeProject)}
+                        style={{
+                          background: "rgba(225, 121, 114, 0.15)",
+                          color: "var(--accent-danger)",
+                          border: "1px solid rgba(225, 121, 114, 0.3)",
+                          padding: "10px 16px",
+                          borderRadius: "var(--radius-control)",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: "600"
+                        }}
+                      >
+                        🗑️ Padam Projek
+                      </button>
+                    </div>
+                  </form>
                 </div>
               )}
             </>

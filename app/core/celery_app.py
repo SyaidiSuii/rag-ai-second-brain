@@ -1,10 +1,11 @@
 from celery import Celery
+from app.core.config import settings
 
-# 1. Kekalkan URL asal (tanpa parameter di hujung)
+# 1. URL broker dan backend daripada tetapan (menyokong Docker & lokal)
 celery_app = Celery(
     "ai_second_brain_tasks",
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/0"
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL
 )
 
 # 2. Kemas kini konfigurasi tambahan

@@ -1,14 +1,16 @@
 import sys
+from sqlalchemy import text
 from app.core.database import engine
 from app.models import Base
 
 def init_db():
-    print("Mula mencipta jadual di database PostgreSQL...")
+    print("Mula memeriksa dan mencipta sambungan database PostgreSQL...")
     try:
-        # Arahan ini akan membaca metadata dari Base dan membina 
-        # semua jadual yang kita daftar di app/models/__init__.py
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+            conn.commit()
         Base.metadata.create_all(bind=engine)
-        print("Tahniah! Semua jadual database berjaya dicipta.")
+        print("Tahniah! Semua jadual database & ekstensi pgvector sedia digunakan.")
     except Exception as e:
         print(f"Ralat semasa mencipta jadual: {e}", file=sys.stderr)
 

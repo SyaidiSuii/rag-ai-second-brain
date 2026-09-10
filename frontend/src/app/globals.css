@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --bg-primary: #0d1110;
   --bg-secondary: #141916;
@@ -20,19 +24,19 @@
   --shadow-control: 0 10px 28px rgba(0, 0, 0, 0.2);
   --radius-panel: 14px;
   --radius-control: 9px;
-  --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-code: Consolas, "SFMono-Regular", monospace;
+  --font-body: var(--font-geist), Geist, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-code: var(--font-mono), "JetBrains Mono", Consolas, "SFMono-Regular", monospace;
 }
 
 * {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
-  font-family: var(--font-body);
 }
 
 html,
 body {
+  font-family: var(--font-body);
   width: 100vw;
   min-height: 100dvh;
   background:
@@ -92,6 +96,22 @@ select:focus-visible {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(153, 194, 107, 0.7);
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
 }
 
 .orb {

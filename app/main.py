@@ -1,6 +1,8 @@
 import os
 import shutil
 import uuid
+from datetime import timedelta
+from typing import Optional
 from fastapi import FastAPI, Depends, Query, UploadFile, File, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -28,7 +30,11 @@ app = FastAPI(title="AI Second Brain API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_origin_regex=r"^https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,10 +44,23 @@ app.add_middleware(
 STORAGE_DIR = "storage"
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
+@app.on_event("startup")
+def startup_event():
+    from app.core.init_db import init_db
+    init_db()
+
 # Schema untuk Input Pendaftaran JSON
 class UserRegisterSchema(BaseModel):
     email: str
     password: str
+
+# Schema untuk Kemas Kini Tetapan AI & Projek (ponytail)
+class LLMConfigUpdateSchema(BaseModel):
+    provider_type: str = "google"
+    base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    api_key: Optional[str] = None
+    model_name: str = "gemini-1.5-flash"
+    name: Optional[str] = None
 
 @app.get("/api/v1/health")
 def health_check(db: Session = Depends(get_db)):
@@ -85,6 +104,7 @@ def register_user(payload: UserRegisterSchema, db: Session = Depends(get_db)):
 @app.post("/api/v1/auth/login")
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
+    remember_me: bool = False,
     db: Session = Depends(get_db)
 ):
     user = db.query(User).filter(User.email == form_data.username).first()
@@ -93,8 +113,9 @@ def login_for_access_token(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="E-mel atau kata laluan tidak betul"
         )
-        
-    access_token = create_access_token(data={"sub": str(user.id)})
+
+    token_expiry = timedelta(days=30) if remember_me else timedelta(days=1)    
+    access_token = create_access_token(data={"sub": str(user.id)},expires_delta=token_expiry)
     return {
         "access_token": access_token,
         "token_type": "bearer"
@@ -156,9 +177,98 @@ def list_my_projects(
         {
             "project_id": str(p.id),
             "name": p.name,
-            "created_at": p.create_at
+            "created_at": p.create_at,
+            "llm_config": {
+                "provider": p.llm_config.provider_type if p.llm_config else "openai",
+                "model": p.llm_config.model_name if p.llm_config else "gpt-4o",
+                "base_url": p.llm_config.base_url if p.llm_config else ""
+            } if p.llm_config else None
         } for p in projects
     ]
+
+# ponytail: Kemas kini model AI & tetapan projek
+@app.put("/api/v1/projects/{project_id}/llm-config")
+def update_project_llm_config(
+    project_id: str,
+    payload: LLMConfigUpdateSchema,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        proj_uuid = uuid.UUID(project_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Format ID Projek tidak sah")
+
+    project = db.query(Project).filter(
+        Project.id == proj_uuid,
+        Project.user_id == current_user.id
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Projek tidak dijumpai atau anda tiada akses.")
+
+    if payload.name and payload.name.strip():
+        project.name = payload.name.strip()
+
+    config = db.query(LLMConfig).filter(LLMConfig.project_id == proj_uuid).first()
+    if not config:
+        config = LLMConfig(
+            project_id=project.id,
+            provider_type=payload.provider_type,
+            base_url=payload.base_url,
+            api_key=payload.api_key,
+            model_name=payload.model_name
+        )
+        db.add(config)
+    else:
+        config.provider_type = payload.provider_type
+        config.base_url = payload.base_url
+        config.model_name = payload.model_name
+        if payload.api_key is not None and payload.api_key.strip() != "":
+            config.api_key = payload.api_key.strip()
+
+    try:
+        db.commit()
+        db.refresh(project)
+        return {
+            "message": "Tetapan AI dan Model berjaya dikemas kini",
+            "project_id": str(project.id),
+            "name": project.name,
+            "llm_config": {
+                "provider": config.provider_type,
+                "model": config.model_name,
+                "base_url": config.base_url
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Gagal mengemas kini tetapan: {str(e)}")
+
+# ponytail: Padam projek
+@app.delete("/api/v1/projects/{project_id}")
+def delete_project(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        proj_uuid = uuid.UUID(project_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Format ID Projek tidak sah")
+
+    project = db.query(Project).filter(
+        Project.id == proj_uuid,
+        Project.user_id == current_user.id
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Projek tidak dijumpai atau anda tiada akses.")
+
+    try:
+        db.delete(project)
+        db.commit()
+        return {"message": "Projek berjaya dipadam"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Gagal memadam projek: {str(e)}")
 
 # Muat naik fail (Pastikan projek adalah milik pengguna logged-in)
 @app.post("/api/v1/projects/{project_id}/documents/upload")
@@ -322,6 +432,29 @@ def list_chat_sessions(
             "created_at": s.created_at
         } for s in sessions
     ]
+
+# Padam sesi sembang
+@app.delete("/api/v1/chats/{session_id}")
+def delete_chat_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    sess_uuid = uuid.UUID(session_id)
+    chat_session = db.query(ChatSession).join(Project).filter(
+        ChatSession.id == sess_uuid,
+        Project.user_id == current_user.id
+    ).first()
+    if not chat_session:
+        raise HTTPException(status_code=404, detail="Sesi sembang tidak dijumpai atau anda tiada kebenaran.")
+        
+    try:
+        db.delete(chat_session)
+        db.commit()
+        return {"message": "Sesi sembang berjaya dipadam"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Gagal memadam sesi sembang: {str(e)}")
 
 # Dapatkan sejarah mesej
 @app.get("/api/v1/chats/{session_id}/messages")
