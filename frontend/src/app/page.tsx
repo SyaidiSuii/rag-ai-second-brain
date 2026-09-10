@@ -111,6 +111,13 @@ export default function Home() {
   const [editModelName, setEditModelName] = useState("gemini-1.5-flash");
   const [settingsFeedback, setSettingsFeedback] = useState<Feedback | null>(null);
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showEditApiKey, setShowEditApiKey] = useState(false);
+  const [toast, setToast] = useState<{ title: string; time: string; message: string } | null>({
+    title: "Antigravity",
+    time: "just now",
+    message: "Resolving Node.js CPU Overhead",
+  });
 
   const handleEditProviderSelect = (type: string) => {
     setEditProviderType(type);
@@ -523,25 +530,29 @@ export default function Home() {
 
   return (
     <div className="dashboard-container">
-      <aside className="sidebar glass-panel">
+      <aside className="sidebar">
         <div className="sidebar-brand">
-          <span className="logo-icon">SB</span>
-          <div>
-            <h2>Second Brain</h2>
-            <p>RAG workspace</p>
+          <div className="sidebar-brand-left">
+            <div className="sidebar-logo-box">SB</div>
+            <div className="sidebar-brand-text">
+              <h2>SecondBrain</h2>
+              <p>RAG WORKSPACE</p>
+            </div>
           </div>
+          <span className="sidebar-version-pill">v2.4</span>
         </div>
 
         <div className="sidebar-section">
-          <div className="section-header">
-            <h3>Projek semasa</h3>
+          <div className="sidebar-section-header">
+            <h3>CURRENT PROJECT</h3>
             <button
+              type="button"
               onClick={() => {
                 setActiveProject(null);
                 setNewProjName("");
               }}
-              className="new-chat-btn"
-              title="Cipta Projek Baru"
+              className="sidebar-add-btn"
+              title="Create New Project"
             >
               +
             </button>
@@ -552,9 +563,9 @@ export default function Home() {
               setActiveProject(e.target.value || null);
               setActiveSession(null);
             }}
-            className="glass-input project-selector"
+            className="sidebar-select"
           >
-            <option value="" disabled>Pilih Projek...</option>
+            <option value="" disabled>Select Project...</option>
             {projects.map((p) => (
               <option key={p.project_id} value={p.project_id}>{p.name}</option>
             ))}
@@ -562,202 +573,317 @@ export default function Home() {
         </div>
 
         <div className="sidebar-section chat-sessions-section">
-          <div className="section-header">
-            <h3>Sejarah sembang</h3>
-            <button onClick={handleCreateSession} className="new-chat-btn" title="Sembang Baru">
+          <div className="sidebar-section-header">
+            <h3>CHAT HISTORY</h3>
+            <button
+              type="button"
+              onClick={handleCreateSession}
+              disabled={!activeProject}
+              className="sidebar-add-btn"
+              title="New Chat"
+            >
               +
             </button>
           </div>
-          <div className="chat-sessions-list">
-            {sessions.map((s) => (
-              <div key={s.session_id} style={{ display: "flex", alignItems: "center", gap: "4px", width: "100%" }}>
-                <button
-                  type="button"
-                  onClick={() => setActiveSession(s.session_id)}
-                  className={`chat-session-item ${activeSession === s.session_id ? "active" : ""}`}
-                  style={{ flex: 1, minWidth: 0 }}
-                >
-                  <span className="item-marker">CH</span>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm("Adakah anda pasti mahu memadam sesi sembang ini?")) {
-                      handleDeleteSession(s.session_id);
-                    }
-                  }}
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    color: "rgba(225, 121, 114, 0.7)",
-                    cursor: "pointer",
-                    padding: "6px",
-                    borderRadius: "6px",
-                    fontSize: "13px",
-                    lineHeight: 1
-                  }}
-                  title="Padam Sesi Sembang"
-                >
-                  🗑️
-                </button>
+          {sessions.length === 0 ? (
+            <div className="chat-empty-dashed">
+              <div className="chat-empty-icon-circle">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
               </div>
-            ))}
-            {sessions.length === 0 && <p className="empty-text">Tiada sejarah sembang.</p>}
-          </div>
+              <div className="chat-empty-title">No chat history yet.</div>
+              <div className="chat-empty-subtitle">
+                Start or select a project to begin conversational retrieval
+              </div>
+            </div>
+          ) : (
+            <div className="chat-sessions-list">
+              {sessions.map((s) => (
+                <div key={s.session_id} style={{ display: "flex", alignItems: "center", gap: "4px", width: "100%" }}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSession(s.session_id)}
+                    className={`chat-session-item ${activeSession === s.session_id ? "active" : ""}`}
+                    style={{ flex: 1, minWidth: 0 }}
+                  >
+                    <span className="item-marker">CH</span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm("Adakah anda pasti mahu memadam sesi sembang ini?")) {
+                        handleDeleteSession(s.session_id);
+                      }
+                    }}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "rgba(225, 121, 114, 0.7)",
+                      cursor: "pointer",
+                      padding: "6px",
+                      borderRadius: "6px",
+                      fontSize: "13px",
+                      lineHeight: 1
+                    }}
+                    title="Padam Sesi Sembang"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="sidebar-footer">
-          <div className="user-info">
-            <div className="avatar">DEV</div>
-            <span>Akaun Aktif</span>
+          <div className="sidebar-user-row">
+            <div className="sidebar-user-avatar">DEV</div>
+            <div className="sidebar-user-details">
+              <div className="sidebar-user-name">Active Account</div>
+              <div className="sidebar-user-status">
+                <span className="status-dot-green"></span> Online
+              </div>
+            </div>
           </div>
-          <button onClick={handleLogout} className="btn-secondary logout-btn">
-            Log Keluar
+          <button onClick={handleLogout} className="sidebar-logout-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Log Out
           </button>
         </div>
       </aside>
 
       <main className="main-content">
-        <header className="main-header glass-panel">
-          <div className="header-project-name">
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <span className="eyebrow">Developer memory</span>
-              {activeProjectModel && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("settings")}
-                  title="Klik untuk ubah model AI"
-                  style={{
-                    fontSize: "11px",
-                    background: "rgba(153, 194, 107, 0.15)",
-                    color: "#b7df84",
-                    padding: "3px 10px",
-                    borderRadius: "6px",
-                    border: "1px solid rgba(183, 223, 132, 0.3)",
-                    fontFamily: "var(--font-code)",
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "4px"
-                  }}
-                >
-                  🤖 {activeProjectModel} <span style={{ opacity: 0.7, fontSize: "10px" }}>✎</span>
-                </button>
-              )}
+        <header className="main-topbar">
+          <div className="topbar-left">
+            <div className="topbar-breadcrumb">
+              <span className="status-dot-green"></span>
+              <span className="topbar-breadcrumb-title">DEVELOPER MEMORY</span>
+              <span className="topbar-breadcrumb-slash">/</span>
+              <span className="topbar-breadcrumb-project">
+                {activeProject ? activeProjectName : "Select a Project to Get Started"}
+              </span>
             </div>
-            <h1>{activeProjectName}</h1>
+
+            <div className="topbar-stats-group">
+              <div className="topbar-stat-pill">
+                <span>Projects</span>
+                <span className="topbar-stat-count">{projects.length}</span>
+              </div>
+              <div className="topbar-stat-pill">
+                <span>Sessions</span>
+                <span className="topbar-stat-count">{sessions.length}</span>
+              </div>
+              <div className="topbar-stat-pill">
+                <span>Files</span>
+                <span className="topbar-stat-count">{projectDocs.length}</span>
+              </div>
+            </div>
           </div>
 
-          <nav className="tab-navigation" aria-label="Navigasi utama">
-            <button onClick={() => setActiveTab("chat")} className={`tab-btn ${activeTab === "chat" ? "active" : ""}`}>
-              Sembang RAG
+          <nav className="topbar-tabs" aria-label="Navigasi utama">
+            <button
+              onClick={() => setActiveTab("chat")}
+              className={`topbar-tab-btn ${activeTab === "chat" ? "active" : ""}`}
+            >
+              RAG Chat
             </button>
-            <button onClick={() => setActiveTab("docs")} className={`tab-btn ${activeTab === "docs" ? "active" : ""}`}>
-              Pengurus Fail
+            <button
+              onClick={() => setActiveTab("docs")}
+              className={`topbar-tab-btn ${activeTab === "docs" ? "active" : ""}`}
+            >
+              File Manager
             </button>
-            <button onClick={() => setActiveTab("search")} className={`tab-btn ${activeTab === "search" ? "active" : ""}`}>
-              Carian Semantik
+            <button
+              onClick={() => setActiveTab("search")}
+              className={`topbar-tab-btn ${activeTab === "search" ? "active" : ""}`}
+            >
+              Semantic Search
             </button>
-            <button onClick={() => setActiveTab("settings")} className={`tab-btn ${activeTab === "settings" ? "active" : ""}`}>
-              ⚙️ Tetapan Model AI
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`topbar-tab-btn ${activeTab === "settings" ? "active" : ""}`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              AI Model Settings
             </button>
           </nav>
         </header>
 
-        <div className="metrics-strip">
-          <div className="metric glass-panel">
-            <span>Projek</span>
-            <strong>{projects.length}</strong>
-          </div>
-          <div className="metric glass-panel">
-            <span>Sesi</span>
-            <strong>{sessions.length}</strong>
-          </div>
-          <div className="metric glass-panel">
-            <span>Fail</span>
-            <strong>{projectDocs.length}</strong>
-          </div>
-        </div>
-
-        <section className="tab-body">
+        <section className="tab-body-area">
           {!activeProject ? (
-            <div className="no-project-panel glass-panel">
-              <div className="empty-state-copy">
-                <span className="eyebrow">Setup Projek</span>
-                <h2>Pilih & Sediakan Enjin AI Projek</h2>
-                <p>Cipta projek baharu dan pilih mana-mana enjin AI (Google Gemini, OpenAI, Claude via OpenRouter, DeepSeek, Groq, atau Ollama Tempatan).</p>
+            <div className="hero-setup-grid">
+              <div className="hero-left">
+                <div className="hero-badge-pill">
+                  <span className="status-dot-green"></span>
+                  <span>Project Setup</span>
+                </div>
+
+                <h1 className="hero-title">
+                  Select &<br />
+                  Configure<br />
+                  Project AI<br />
+                  <span className="hero-title-muted">Engine</span>
+                </h1>
+
+                <p className="hero-description">
+                  Create a new project and select any AI engine (Google Gemini, OpenAI, Claude via OpenRouter, DeepSeek, Groq, or Local Ollama).
+                </p>
+
+                <div className="hero-tags-row">
+                  <span className="hero-tag">#RAG</span>
+                  <span className="hero-tag">#Vectors</span>
+                  <span className="hero-tag">#LocalLLM</span>
+                </div>
               </div>
 
-              <form onSubmit={handleCreateProject} className="create-project-inline">
-                <h3>Cipta Projek & Pilih AI Model</h3>
+              <div className="setup-card">
+                <div className="setup-card-header">
+                  <div>
+                    <h3>Create Project & Select AI Model</h3>
+                    <p>Configure LLM endpoints and define your project workspace</p>
+                  </div>
+                  <button type="button" className="setup-card-icon-btn" title="AI Parameters">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="4" y1="21" x2="4" y2="14"></line>
+                      <line x1="4" y1="10" x2="4" y2="3"></line>
+                      <line x1="12" y1="21" x2="12" y2="12"></line>
+                      <line x1="12" y1="8" x2="12" y2="3"></line>
+                      <line x1="20" y1="21" x2="20" y2="16"></line>
+                      <line x1="20" y1="12" x2="20" y2="3"></line>
+                      <line x1="1" y1="14" x2="7" y2="14"></line>
+                      <line x1="9" y1="8" x2="15" y2="8"></line>
+                      <line x1="17" y1="16" x2="23" y2="16"></line>
+                    </svg>
+                  </button>
+                </div>
+
                 {projectFeedback && (
                   <div className={`feedback ${projectFeedback.type}`} role="status">
                     {projectFeedback.message}
                   </div>
                 )}
 
-                <div className="form-group">
-                  <label>Nama Projek</label>
-                  <input
-                    type="text"
-                    className="glass-input"
-                    value={newProjName}
-                    onChange={(e) => setNewProjName(e.target.value)}
-                    placeholder="Contoh: Projek Kedai E-Dagang"
-                    required
-                  />
-                </div>
-
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Penyedia AI / LLM Model</label>
-                    <select
-                      value={providerType}
-                      onChange={(e) => handleProviderSelect(e.target.value)}
+                <form onSubmit={handleCreateProject} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  <div>
+                    <label className="setup-field-label">Project Name</label>
+                    <input
+                      type="text"
                       className="glass-input"
-                    >
-                      <option value="google">Google AI Studio (Gemini 1.5/2.0)</option>
-                      <option value="openrouter">OpenRouter (Claude 3.5 / DeepSeek R1 / Llama)</option>
-                      <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
-                      <option value="deepseek">DeepSeek Direct (deepseek-chat)</option>
-                      <option value="groq">Groq Console (llama-3.3-70b - Fast)</option>
-                      <option value="local">Ollama Tempatan (Offline / Local)</option>
-                      <option value="custom">Custom (Manual Base URL)</option>
-                    </select>
+                      style={{ marginTop: "6px" }}
+                      value={newProjName}
+                      onChange={(e) => setNewProjName(e.target.value)}
+                      placeholder="e.g., E-Commerce Store Project"
+                      required
+                    />
                   </div>
 
-                  <div className="form-group">
-                    <label>Base URL API</label>
-                    <input type="text" className="glass-input" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} required />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    <div>
+                      <label className="setup-field-label">AI Provider / LLM Model</label>
+                      <select
+                        value={providerType}
+                        onChange={(e) => handleProviderSelect(e.target.value)}
+                        className="glass-input"
+                        style={{ marginTop: "6px" }}
+                      >
+                        <option value="google">Google AI Studio (Gemini)</option>
+                        <option value="openrouter">OpenRouter (Claude/Llama)</option>
+                        <option value="openai">OpenAI (GPT-4o)</option>
+                        <option value="deepseek">DeepSeek Direct</option>
+                        <option value="groq">Groq Console (Fast)</option>
+                        <option value="local">Ollama (Offline/Local)</option>
+                        <option value="custom">Custom URL</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="setup-field-label">API Base URL</label>
+                      <input
+                        type="text"
+                        className="glass-input"
+                        style={{ marginTop: "6px" }}
+                        value={baseUrl}
+                        onChange={(e) => setBaseUrl(e.target.value)}
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div className="form-group">
-                  <label>
-                    API Key {providerType === "local" ? "(Opsional)" : `untuk ${providerType.toUpperCase()}`}
-                  </label>
-                  <input
-                    type="password"
-                    className="glass-input"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder={providerType === "local" ? "Kosongkan untuk Ollama" : `Masukkan API Key ${providerType} anda`}
-                  />
-                </div>
+                  <div>
+                    <div className="form-group-label-row">
+                      <label className="setup-field-label">
+                        API Key for {providerType.toUpperCase()}
+                      </label>
+                      <span className="form-group-encrypted-badge">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        Encrypted & stored locally
+                      </span>
+                    </div>
+                    <div className="input-with-icon">
+                      <input
+                        type={showApiKey ? "text" : "password"}
+                        className="glass-input"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder={providerType === "local" ? "Optional for local Ollama" : `Enter your ${providerType} API Key`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="input-toggle-icon"
+                        title={showApiKey ? "Hide API key" : "Show API key"}
+                      >
+                        {showApiKey ? (
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                          </svg>
+                        ) : (
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
 
-                <div className="form-group">
-                  <label>Nama Model AI (`model_name`)</label>
-                  <input type="text" className="glass-input" value={modelName} onChange={(e) => setModelName(e.target.value)} required />
-                </div>
+                  <div>
+                    <label className="setup-field-label">AI Model Name (model_name)</label>
+                    <input
+                      type="text"
+                      className="glass-input"
+                      style={{ marginTop: "6px" }}
+                      value={modelName}
+                      onChange={(e) => setModelName(e.target.value)}
+                      required
+                    />
+                  </div>
 
-                <button type="submit" className="btn-primary">
-                  Cipta Projek
-                </button>
-              </form>
+                  <button type="submit" className="btn-primary" style={{ marginTop: "4px" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    CREATE PROJECT
+                  </button>
+                </form>
+              </div>
             </div>
           ) : (
+
             <>
               {activeTab === "chat" && (
                 <div className="chat-tab-container glass-panel">
@@ -982,16 +1108,45 @@ export default function Home() {
                     </div>
 
                     <div className="form-group">
-                      <label>
-                        API Key {editProviderType === "local" ? "(Opsional)" : `untuk ${editProviderType.toUpperCase()}`}
-                      </label>
-                      <input
-                        type="password"
-                        className="glass-input"
-                        value={editApiKey}
-                        onChange={(e) => setEditApiKey(e.target.value)}
-                        placeholder="Biarkan kosong untuk mengekalkan API Key sedia ada"
-                      />
+                      <div className="form-group-label-row">
+                        <label className="setup-field-label">
+                          API Key {editProviderType === "local" ? "(Opsional)" : `untuk ${editProviderType.toUpperCase()}`}
+                        </label>
+                        <span className="form-group-encrypted-badge">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                          </svg>
+                          Encrypted & stored locally
+                        </span>
+                      </div>
+                      <div className="input-with-icon">
+                        <input
+                          type={showEditApiKey ? "text" : "password"}
+                          className="glass-input"
+                          value={editApiKey}
+                          onChange={(e) => setEditApiKey(e.target.value)}
+                          placeholder="Biarkan kosong untuk mengekalkan API Key sedia ada"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowEditApiKey(!showEditApiKey)}
+                          className="input-toggle-icon"
+                          title={showEditApiKey ? "Hide API key" : "Show API key"}
+                        >
+                          {showEditApiKey ? (
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                              <line x1="1" y1="1" x2="23" y2="23"></line>
+                            </svg>
+                          ) : (
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                              <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="form-group">
@@ -1066,6 +1221,27 @@ export default function Home() {
           )}
         </section>
       </main>
+
+      {toast && (
+        <div className="toast-floating-card">
+          <div className="toast-badge-box">A</div>
+          <div className="toast-content">
+            <div className="toast-header-row">
+              <span className="toast-title">{toast.title}</span>
+              <span className="toast-time">{toast.time}</span>
+            </div>
+            <div className="toast-message">{toast.message}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="toast-close-btn"
+            title="Dismiss notification"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }

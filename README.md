@@ -114,8 +114,3 @@ npm run dev
 _Aplikasi web akan sedia di: `http://localhost:3000`_
 
 ---
-
-## 🔑 Ujian Akaun Lalai (Default Test Credentials)
-
-- **E-mel**: `developer@example.com`
-- **Kata Laluan**: `mypassword123`
